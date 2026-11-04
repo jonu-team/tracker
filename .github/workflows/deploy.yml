@@ -39,6 +39,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # deploy-pages ждёт публикацию до 10 минут; у задачи — запас, чтобы действие
+    # успело отменить зависший деплой, иначе он блокирует следующие
+    timeout-minutes: 15
     permissions:
       pages: write
       id-token: write

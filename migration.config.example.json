@@ -1,0 +1,12 @@
+{
+  "owner": "my-org",
+  "repo": "tasks",
+  "branch": "main",
+  "keyPrefix": "DEV",
+  "users": {
+    "<id пользователя в Трекере>": "<логин GitHub>"
+  },
+  "hashRefRepo": "my-org/my-code-repo",
+  "exportFile": "/path/to/dev-export.json",
+  "attachmentsDir": "/path/to/attachments"
+}

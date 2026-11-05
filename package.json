@@ -18,14 +18,19 @@
     "migrate": "node scripts/migrate.ts"
   },
   "dependencies": {
+    "@milkdown/kit": "7.23.0",
     "@preact/signals": "2.11.4",
     "dompurify": "3.4.17",
     "marked": "18.1.3",
-    "preact": "11.1.1"
+    "preact": "11.1.1",
+    "remark-breaks": "4.0.0",
+    "turndown": "7.2.5"
   },
   "devDependencies": {
     "@preact/preset-vite": "2.10.6",
     "@types/node": "26.6.6",
+    "@types/turndown": "5.0.6",
+    "happy-dom": "21.0.4",
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "5.1.0"

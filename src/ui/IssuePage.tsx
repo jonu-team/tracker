@@ -9,6 +9,7 @@ import { DateText, EmptyState, Menu, MenuItem, Person, Spinner, StatusButton, Us
 import { Icon } from './icons.tsx'
 import { AttachButton, AttachmentsBlock, ChecklistBlock, CommentsBlock, LinksBlock } from './issue-blocks.tsx'
 import { Markdown, MarkdownEditor } from './markdown.tsx'
+import { QuoteReply } from './QuoteReply.tsx'
 
 export function IssuePage({ number }: { number: number }) {
   const issue = issueMap.value.get(number)
@@ -36,6 +37,7 @@ export function IssuePage({ number }: { number: number }) {
 
   return (
     <div class="page page--issue">
+      <QuoteReply issueNumber={number} />
       <div class="crumbs">
         <a href="#/list">{KEY_PREFIX}</a>
         <span class="crumbs__sep">/</span>
@@ -251,7 +253,7 @@ function Description({ issue }: { issue: Issue }) {
           </div>
         </>
       ) : text ? (
-        <Markdown text={text} />
+        <Markdown text={text} quotable />
       ) : (
         <button type="button" class="placeholder" onClick={start}>
           Описания нет — нажмите, чтобы добавить

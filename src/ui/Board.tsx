@@ -81,7 +81,7 @@ function Card({ issue, onPointerDown }: { issue: Issue; onPointerDown: (event: P
         {issue.title}
       </a>
       <div class="card__bottom">
-        {issue.status === 'needInfo' && <StatusLabel status="needInfo" size="s" />}
+        <StatusLabel status={issue.status} size="s" />
         {progress.total > 0 && (
           <span class={`card__meta${progress.done === progress.total ? ' is-done' : ''}`} title="Чеклист">
             <Icon name="checklist" size={14} />

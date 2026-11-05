@@ -22,6 +22,7 @@ import {
 } from '../store.ts'
 import { Avatar, DateText, Menu, MenuItem, Person, Spinner, StatusLabel, UserPicker } from './common.tsx'
 import { Icon } from './icons.tsx'
+import { commentDrafts, composerFocus, setDraft } from './drafts.ts'
 import { Markdown, MarkdownEditor, lightbox } from './markdown.tsx'
 
 // Чеклист
@@ -441,8 +442,12 @@ function AttachmentTile({ file, onRemove }: { file: Attachment; onRemove: () => 
 export function CommentsBlock({ issue }: { issue: Issue }) {
   const state = commentsByIssue.value.get(issue.number)
   const viewer = session.value!.viewer
-  const [draft, setDraft] = useState('')
+  const draft = commentDrafts.value.get(issue.number) ?? ''
+  const [opened, setOpened] = useState(false)
   const [sending, setSending] = useState(false)
+  // цитаты, добавленные уже на этой странице, открывают поле и ставят курсор после них
+  const quoteBase = useRef(composerFocus.value)
+  const quoted = composerFocus.value !== quoteBase.current
   useEffect(() => {
     void loadComments(issue.number)
   }, [issue.number])
@@ -458,7 +463,10 @@ export function CommentsBlock({ issue }: { issue: Issue }) {
     setSending(true)
     const ok = await addComment(issue.number, text)
     setSending(false)
-    if (ok) setDraft('')
+    if (ok) {
+      setDraft(issue.number, '')
+      setOpened(false)
+    }
   }
 
   return (
@@ -486,13 +494,41 @@ export function CommentsBlock({ issue }: { issue: Issue }) {
       <div class="comment-form">
         <Avatar login={viewer.login} name={viewer.name} />
         <div class="comment-form__body">
-          <MarkdownEditor value={draft} onInput={setDraft} issueNumber={issue.number} placeholder="Написать комментарий" minRows={3} onSubmit={send} />
-          <div class="form-actions">
-            <button type="button" class="btn btn--action" disabled={!draft.trim() || sending} onClick={send}>
-              {sending ? 'Отправляю…' : 'Отправить'}
+          {opened || draft ? (
+            <>
+              <MarkdownEditor
+                value={draft}
+                onInput={(text) => setDraft(issue.number, text)}
+                issueNumber={issue.number}
+                placeholder="Написать комментарий"
+                minRows={3}
+                autoFocus={opened || quoted}
+                focusRequest={composerFocus.value}
+                onSubmit={send}
+              />
+              <div class="form-actions">
+                <button type="button" class="btn btn--action" disabled={!draft.trim() || sending} onClick={send}>
+                  {sending ? 'Отправляю…' : 'Отправить'}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--flat"
+                  onClick={() => {
+                    if (draft.trim() && !confirm('Удалить черновик комментария?')) return
+                    setDraft(issue.number, '')
+                    setOpened(false)
+                  }}
+                >
+                  Отмена
+                </button>
+                <span class="muted small hide-mobile">⌘/Ctrl + Enter — отправить · выделите текст выше, чтобы ответить цитатой</span>
+              </div>
+            </>
+          ) : (
+            <button type="button" class="comment-form__placeholder" onClick={() => setOpened(true)}>
+              Написать комментарий…
             </button>
-            <span class="muted small hide-mobile">⌘/Ctrl + Enter</span>
-          </div>
+          )}
         </div>
       </div>
     </section>
@@ -558,7 +594,7 @@ function CommentItem({ issue, comment, own }: { issue: Issue; comment: Comment; 
             </div>
           </>
         ) : (
-          <Markdown text={comment.text} />
+          <Markdown text={comment.text} quotable />
         )}
       </div>
     </li>

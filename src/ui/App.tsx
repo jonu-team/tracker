@@ -6,6 +6,7 @@ import { booting, dismissToast, issueMap, refresh, session, signOut, sync, toast
 import { Board } from './Board.tsx'
 import { Avatar, EmptyState, Menu, MenuItem, Spinner } from './common.tsx'
 import { CreateIssue } from './CreateIssue.tsx'
+import { forgetDrafts } from './drafts.ts'
 import { Icon } from './icons.tsx'
 import { IssueList } from './IssueList.tsx'
 import { IssuePage } from './IssuePage.tsx'
@@ -120,6 +121,7 @@ function Header() {
                 danger
                 onSelect={() => {
                   close()
+                  forgetDrafts()
                   signOut()
                 }}
               >

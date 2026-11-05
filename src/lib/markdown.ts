@@ -78,6 +78,8 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
       if (file) {
         node.setAttribute('data-repo-path', file.path)
         node.setAttribute('data-repo-ref', file.ref)
+        // исходный адрес нужен цитате: на экране картинка будет blob:
+        node.setAttribute('data-src', src)
       } else if (src) {
         // Сторонние картинки CSP не пропустит — покажем ссылкой.
         node.setAttribute('data-external-src', src)

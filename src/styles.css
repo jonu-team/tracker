@@ -1399,6 +1399,42 @@ body.is-dragging * {
   padding-top: 8px;
 }
 
+.comment-form__placeholder {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-l);
+  background: var(--bg);
+  color: var(--text-3);
+  text-align: left;
+  cursor: text;
+}
+
+.comment-form__placeholder:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.quote-button {
+  position: fixed;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 16px;
+  background: #2a2c30;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: var(--shadow-popup);
+}
+
+.quote-button:hover {
+  background: #000;
+}
+
 .form-actions {
   display: flex;
   align-items: center;
@@ -1408,26 +1444,26 @@ body.is-dragging * {
 
 /* Редактор */
 
-.editor {
+.text-editor {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-l);
   background: var(--bg);
 }
 
-.editor:focus-within {
+.text-editor:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-.editor__bar {
+.text-editor__bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 4px 6px;
   border-bottom: 1px solid var(--line);
 }
 
-.editor__hint {
+.text-editor__hint {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1437,7 +1473,163 @@ body.is-dragging * {
   white-space: nowrap;
 }
 
-.editor__area {
+.text-editor__attach {
+  margin-left: auto;
+  flex: none;
+}
+
+/* панель оформления: на узком экране листается вбок */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.toolbar__sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--line);
+}
+
+.tool {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-2);
+}
+
+.tool:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.tool.is-active {
+  background: var(--bg-selected);
+  color: var(--info-text);
+}
+
+.tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.text-editor__link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-page);
+}
+
+.text-editor__link .input {
+  flex: 1 1 220px;
+  height: 28px;
+}
+
+/* визуальный режим */
+.visual-editor {
+  position: relative;
+  min-height: 84px;
+}
+
+.visual-editor__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.visual-editor__content {
+  min-height: 84px;
+  max-height: max(240px, 60vh);
+  overflow-y: auto;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.visual-editor__content.is-empty::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.visual-editor__content li[data-item-type='task'] {
+  position: relative;
+  list-style: none;
+}
+
+/* квадратик отметки рисуем сами; клик по нему переключает пункт */
+.visual-editor__content li[data-item-type='task']::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.visual-editor__content li[data-item-type='task'][data-checked='true']::before {
+  border-color: var(--accent);
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+.visual-editor__content li[data-item-type='task'][data-checked='true'] > p {
+  color: var(--text-2);
+}
+
+.visual-editor__content img {
+  max-height: 360px;
+}
+
+.visual-editor__content img.is-loading {
+  width: 160px;
+  height: 90px;
+  background: var(--bg-generic);
+}
+
+.visual-editor__content img.is-broken {
+  min-width: 120px;
+  min-height: 40px;
+  outline: 1px dashed var(--line-strong);
+}
+
+.visual-editor__content .ProseMirror-selectednode {
+  outline: 2px solid rgba(0, 104, 214, 0.45);
+}
+
+.visual-editor__uploading {
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  background: var(--bg-generic);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.text-editor__area {
   display: block;
   width: 100%;
   min-height: 84px;
@@ -1450,12 +1642,7 @@ body.is-dragging * {
   line-height: 20px;
 }
 
-.editor__preview {
-  min-height: 84px;
-  padding: 10px 12px;
-}
-
-.editor__status {
+.text-editor__status {
   padding: 4px 12px 8px;
   color: var(--text-2);
   font-size: 12px;
@@ -1995,10 +2182,25 @@ body.is-dragging * {
     font-size: 16px; /* меньше 16px — iOS увеличит страницу при фокусе */
   }
 
-  .editor__area,
+  .text-editor__area,
   .search__input,
-  .input--inline {
+  .input--inline,
+  .visual-editor__content {
     font-size: 16px;
+  }
+
+  .text-editor__bar .segmented button {
+    padding: 0 8px;
+  }
+
+  /* панель оформления — отдельной строкой во всю ширину */
+  .text-editor__bar {
+    flex-wrap: wrap;
+  }
+
+  .text-editor__bar .toolbar {
+    order: 3;
+    flex-basis: 100%;
   }
 
   .input--title {

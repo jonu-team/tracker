@@ -4,7 +4,11 @@ import { parseRepoRef, type RepoRef } from '../lib/github.ts'
 import { errorText, signIn } from '../store.ts'
 import { Icon } from './icons.tsx'
 
-/** Ссылка на форму fine-grained токена с заполненными полями (параметры описаны в docs.github.com). */
+/**
+ * Ссылка на форму fine-grained токена с заполненными полями (параметры описаны в docs.github.com).
+ * GitHub подставляет из них название и описание, а владельца, срок и права — не всегда,
+ * поэтому инструкция ниже просит проверить эти поля.
+ */
 function tokenFormUrl(repo: RepoRef): string {
   const params = new URLSearchParams({
     name: `${APP_TITLE}: ${repo.name}`.slice(0, 40),
@@ -87,26 +91,30 @@ export function Login() {
           <summary>Как выпустить токен — 2 минуты</summary>
           <ol>
             <li>
-              Откройте форму токена в GitHub:{' '}
+              Откройте{' '}
               {repo ? (
                 <a href={tokenFormUrl(repo)} target="_blank" rel="noopener noreferrer">
-                  заполненная форма
+                  форму токена в GitHub
                   <Icon name="external" size={12} />
                 </a>
               ) : (
                 'Settings → Developer settings → Fine-grained tokens → Generate new token'
               )}
-              . Срок, владелец и права в ней уже выставлены.
+              . Название и описание в ней уже заполнены, остальное выберите сами.
             </li>
             <li>
-              <b>Resource owner</b> — организация <b>{repo?.owner ?? '…'}</b>.
+              <b>Resource owner</b> — организация <b>{repo?.owner ?? '…'}</b>. По умолчанию там стоит ваш аккаунт — смените.
             </li>
             <li>
-              <b>Repository access</b> → <b>Only select repositories</b> → <b>{repo?.name ?? '…'}</b>.
+              <b>Expiration</b> — например, <b>Custom</b> на год вперёд. Когда срок выйдет, выпустите новый токен.
             </li>
             <li>
-              <b>Permissions → Repositories</b>: <b>Issues</b> и <b>Contents</b> — Read and write. Metadata (Read-only)
-              добавится сам.
+              <b>Repository access</b> → <b>Only select repositories</b> → <b>{repo?.name ?? '…'}</b>. Не «Public
+              repositories»: с ним токен не увидит приватный репозиторий с задачами.
+            </li>
+            <li>
+              <b>Permissions</b> → <b>Add permissions</b> → <b>Issues</b> и <b>Contents</b>, уровень <b>Read and write</b>.
+              Metadata (Read-only) добавится сам.
             </li>
             <li>
               <b>Generate token</b>, скопируйте токен (начинается с <code>github_pat_</code>) и вставьте выше.

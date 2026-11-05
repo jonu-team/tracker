@@ -8,9 +8,12 @@
 
 Каждый входит своим токеном GitHub. Токен хранится только в браузере (`localStorage`) и уходит только в `api.github.com`.
 
-1. Откройте сайт и нажмите «заполненная форма» в блоке «Как выпустить токен». Откроется форма fine-grained токена, в которой уже выставлены владелец `jonu-team`, срок 366 дней и права Issues и Contents на запись.
-2. В **Repository access** выберите **Only select repositories** → `tasks`.
-3. Нажмите **Generate token**, скопируйте токен (`github_pat_…`) и вставьте на сайте.
+1. Откройте сайт и в блоке «Как выпустить токен» нажмите «форму токена в GitHub». Название и описание там уже заполнены.
+2. **Resource owner** — `jonu-team` (по умолчанию стоит ваш аккаунт).
+3. **Expiration** — например, **Custom** на год вперёд.
+4. **Repository access** → **Only select repositories** → `tasks`. Не «Public repositories»: с ним токен не увидит приватный репозиторий.
+5. **Permissions** → **Add permissions** → **Issues** и **Contents**, уровень **Read and write**.
+6. **Generate token**, скопируйте токен (`github_pat_…`) и вставьте на сайте.
 
 Для этого нужно быть участником организации `jonu-team`. Токен владельца организации одобряется сразу. Токен участника сначала одобряет владелец: Settings организации → Personal access tokens → Pending requests.
 

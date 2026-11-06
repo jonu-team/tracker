@@ -1,17 +1,20 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { KEY_PREFIX } from '../config.ts'
 import { parseBody } from '../domain/body.ts'
 import { setDescription } from '../domain/edits.ts'
 import type { Issue } from '../domain/issue.ts'
+import { issueHref, navigate, withQuery } from '../router.ts'
 import { changeBody, issueMap, notify, savingIssues, session, setAssignee, setMilestone, setStatus, setTitle } from '../store.ts'
+import { History } from './activity.tsx'
 import { DateText, EmptyState, Menu, MenuItem, Person, Spinner, StatusButton, UserPicker } from './common.tsx'
+import { composerFocus } from './drafts.ts'
 import { Icon } from './icons.tsx'
-import { AttachButton, AttachmentsBlock, ChecklistBlock, CommentsBlock, LinksBlock } from './issue-blocks.tsx'
+import { AttachButton, AttachmentsBlock, ChecklistBlock, Comments, LinksBlock } from './issue-blocks.tsx'
 import { Markdown, MarkdownEditor } from './markdown.tsx'
 import { QuoteReply } from './QuoteReply.tsx'
 
-export function IssuePage({ number }: { number: number }) {
+export function IssuePage({ number, tab }: { number: number; tab: string | null }) {
   const issue = issueMap.value.get(number)
   const [addChecklist, setAddChecklist] = useState(false)
   const [addLink, setAddLink] = useState(false)
@@ -87,7 +90,7 @@ export function IssuePage({ number }: { number: number }) {
           <ChecklistBlock issue={issue} adding={addChecklist} onAdded={() => setAddChecklist(false)} />
           <LinksBlock issue={issue} adding={addLink} onAdded={() => setAddLink(false)} />
           <AttachmentsBlock issue={issue} />
-          <CommentsBlock issue={issue} />
+          <ActivityTabs issue={issue} tab={tab === 'history' ? 'history' : 'comments'} />
         </div>
 
         <aside class="issue__side">
@@ -132,6 +135,62 @@ export function IssuePage({ number }: { number: number }) {
         </aside>
       </div>
     </div>
+  )
+}
+
+type ActivityTab = 'comments' | 'history'
+
+/**
+ * Комментарии и история — вкладками, как в Трекере. Вкладка записана в адресе
+ * (`?tab=history`), поэтому ссылка из уведомлений открывает сразу историю.
+ * Комментарии не размонтируются: цитата из описания, сделанная на вкладке
+ * истории, сразу открывает поле комментария с черновиком и фокусом.
+ */
+function ActivityTabs({ issue, tab }: { issue: Issue; tab: ActivityTab }) {
+  const quoteSeen = useRef(composerFocus.value)
+  const quoted = composerFocus.value !== quoteSeen.current
+  const active: ActivityTab = quoted ? 'comments' : tab
+  const select = (next: ActivityTab) => {
+    quoteSeen.current = composerFocus.value
+    const query = new URLSearchParams(next === 'history' ? { tab: 'history' } : {})
+    navigate(withQuery(issueHref(issue.number), query), { replace: true })
+  }
+  useEffect(() => {
+    if (quoted && tab === 'history') select('comments')
+  }, [quoted, tab])
+
+  const tabButton = (key: ActivityTab, children: ComponentChildren) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active === key}
+      class={`block-tab${active === key ? ' is-active' : ''}`}
+      onClick={() => active !== key && select(key)}
+    >
+      {children}
+    </button>
+  )
+  return (
+    <section class="block">
+      <div class="block__head block-tabs" role="tablist">
+        {tabButton(
+          'comments',
+          <>
+            Комментарии
+            {issue.comments > 0 && <span class="block__counter">{issue.comments}</span>}
+          </>,
+        )}
+        {tabButton('history', 'История')}
+      </div>
+      <div role="tabpanel" hidden={active !== 'comments'}>
+        <Comments issue={issue} />
+      </div>
+      {active === 'history' && (
+        <div role="tabpanel">
+          <History issue={issue} />
+        </div>
+      )}
+    </section>
   )
 }
 

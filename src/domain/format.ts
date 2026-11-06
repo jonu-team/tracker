@@ -23,6 +23,25 @@ export function formatDate(iso: string, now = new Date()): string {
   return date.getFullYear() === now.getFullYear() ? dayMonth.format(date) : fullDate.format(date)
 }
 
+const dayLong = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' })
+const dayLongYear = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+
+/** Заголовок дня в ленте: «Сегодня», «Вчера», «4 ноября», «4 ноября 2025 г.». */
+export function formatDay(iso: string, now = new Date()): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000)
+  if (days === 0) return 'Сегодня'
+  if (days === 1) return 'Вчера'
+  return date.getFullYear() === now.getFullYear() ? dayLong.format(date) : dayLongYear.format(date)
+}
+
+/** «14:30». */
+export function formatTime(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? '' : time.format(date)
+}
+
 export function formatDateTime(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? '' : fullDateTime.format(date)

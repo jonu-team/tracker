@@ -6,7 +6,9 @@ import { parseKey } from './domain/issue.ts'
 export type Route =
   | { name: 'board'; query: URLSearchParams }
   | { name: 'list'; query: URLSearchParams }
-  | { name: 'issue'; number: number }
+  /** `?tab=history` — открыть вкладку «История». */
+  | { name: 'issue'; number: number; query: URLSearchParams }
+  | { name: 'notifications'; query: URLSearchParams }
   | { name: 'new' }
   | { name: 'notFound' }
 
@@ -17,8 +19,9 @@ function parse(hash: string): Route {
   if (segment === '' || segment === 'board') return { name: 'board', query }
   if (segment === 'list') return { name: 'list', query }
   if (segment === 'new') return { name: 'new' }
+  if (segment === 'notifications') return { name: 'notifications', query }
   const number = parseKey(KEY_PREFIX, decodeURIComponent(segment))
-  return number ? { name: 'issue', number } : { name: 'notFound' }
+  return number ? { name: 'issue', number, query } : { name: 'notFound' }
 }
 
 export const route = signal<Route>(parse(location.hash))

@@ -5,6 +5,7 @@ import type {
   GhLabel,
   GhRepo,
   GhUser,
+  GqlIssueActivity,
   IssuePatch,
   NewIssue,
 } from '../domain/github-types.ts'
@@ -208,6 +209,46 @@ export class GitHubClient {
     return this.#json('POST', `${this.#repoPath}/labels`, { body: label })
   }
 
+  // История задач. Версии описания GitHub отдаёт только через GraphQL.
+
+  async graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+    const result = await this.#json<{ data?: T | null; errors?: GraphQLError[] }>('POST', '/graphql', {
+      body: { query, variables },
+    })
+    if (result.errors?.length) throw graphqlError(result.errors)
+    return result.data as T
+  }
+
+  async issueActivity(number: number): Promise<GqlIssueActivity | null> {
+    const data = await this.graphql<{ repository: { issue: GqlIssueActivity | null } | null }>(ISSUE_ACTIVITY, {
+      ...this.#repoVars,
+      number,
+    })
+    return data.repository?.issue ?? null
+  }
+
+  /** Задачи, изменённые начиная с `since`, вместе с историей — для уведомлений. */
+  async recentActivity(since: string): Promise<GqlIssueActivity[]> {
+    const items: GqlIssueActivity[] = []
+    let after: string | null = null
+    for (;;) {
+      const data: RecentActivityData = await this.graphql<RecentActivityData>(RECENT_ACTIVITY, {
+        ...this.#repoVars,
+        since,
+        after,
+      })
+      const page = data.repository?.issues
+      if (!page) return items
+      items.push(...page.nodes)
+      if (!page.pageInfo.hasNextPage || !page.pageInfo.endCursor) return items
+      after = page.pageInfo.endCursor
+    }
+  }
+
+  get #repoVars(): { owner: string; name: string } {
+    return { owner: this.repo.owner, name: this.repo.name }
+  }
+
   // Файлы (картинки и вложения)
 
   /** Содержимое файла из репозитория: картинки показываем через API, а не по прямой ссылке. */
@@ -242,6 +283,29 @@ export function encodePath(path: string): string {
   return path.split('/').map(encodeURIComponent).join('/')
 }
 
+const STATUS_MESSAGES: Record<number, string> = {
+  401: 'Токен не подошёл: истёк, отозван или вставлен с ошибкой.',
+  403: 'Нет прав на это действие. Проверьте права токена: Issues и Contents — чтение и запись.',
+  404: 'Не найдено. Возможно, у токена нет доступа к репозиторию с задачами.',
+  409: 'Конфликт изменений. Обновите страницу и повторите.',
+  422: 'GitHub не принял данные',
+}
+
+interface GraphQLError {
+  type?: string
+  message?: string
+}
+
+/** GraphQL отвечает 200 и кладёт ошибки в тело — переводим их в те же сообщения, что у REST. */
+function graphqlError(errors: GraphQLError[]): GitHubError {
+  const types = new Set(errors.map((error) => error.type))
+  if (types.has('RATE_LIMITED')) return new GitHubError(429, 'GitHub временно ограничил запросы.', true)
+  if (types.has('FORBIDDEN')) return new GitHubError(403, STATUS_MESSAGES[403]!)
+  if (types.has('NOT_FOUND')) return new GitHubError(404, STATUS_MESSAGES[404]!)
+  const detail = errors.map((error) => error.message).filter(Boolean).join('; ')
+  return new GitHubError(400, `GitHub не отдал историю${detail ? `: ${detail}` : ''}`)
+}
+
 async function toError(response: Response): Promise<GitHubError> {
   let detail = ''
   try {
@@ -258,13 +322,75 @@ async function toError(response: Response): Promise<GitHubError> {
     const when = reset ? ` Лимит обновится в ${new Date(reset * 1000).toLocaleTimeString('ru-RU')}.` : ''
     return new GitHubError(response.status, `GitHub временно ограничил запросы.${when}`, true)
   }
-  const messages: Record<number, string> = {
-    401: 'Токен не подошёл: истёк, отозван или вставлен с ошибкой.',
-    403: 'Нет прав на это действие. Проверьте права токена: Issues и Contents — чтение и запись.',
-    404: 'Не найдено. Возможно, у токена нет доступа к репозиторию с задачами.',
-    409: 'Конфликт изменений. Обновите страницу и повторите.',
-    422: 'GitHub не принял данные',
-  }
-  const base = messages[response.status] ?? `GitHub ответил ошибкой ${response.status}`
+  const base = STATUS_MESSAGES[response.status] ?? `GitHub ответил ошибкой ${response.status}`
   return new GitHubError(response.status, response.status === 422 && detail ? `${base}: ${detail}` : base)
+}
+
+// Запросы истории. Лимиты: последние 100 событий и 30 версий описания на задачу —
+// с запасом для задач трекера; если не хватит, история честно скажет, что неполная.
+
+const ACTIVITY_FIELDS = `
+  number
+  title
+  body
+  state
+  createdAt
+  updatedAt
+  author { login }
+  labels(first: 50) { nodes { name } }
+  assignees(first: 10) { nodes { login } }
+  userContentEdits(first: 30) {
+    totalCount
+    nodes { id editedAt deletedAt editor { login } diff }
+  }
+  timelineItems(
+    last: 100
+    itemTypes: [LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CLOSED_EVENT, REOPENED_EVENT, ISSUE_COMMENT]
+  ) {
+    totalCount
+    nodes {
+      __typename
+      ... on LabeledEvent { id createdAt actor { login } label { name } }
+      ... on UnlabeledEvent { id createdAt actor { login } label { name } }
+      ... on AssignedEvent { id createdAt actor { login } assignee { ...AssigneeLogin } }
+      ... on UnassignedEvent { id createdAt actor { login } assignee { ...AssigneeLogin } }
+      ... on RenamedTitleEvent { id createdAt actor { login } previousTitle currentTitle }
+      ... on ClosedEvent { id createdAt actor { login } }
+      ... on ReopenedEvent { id createdAt actor { login } }
+      ... on IssueComment { id databaseId createdAt author { login } body url }
+    }
+  }
+`
+
+const ASSIGNEE_FRAGMENT = `
+fragment AssigneeLogin on Assignee {
+  ... on User { login }
+  ... on Bot { login }
+  ... on Mannequin { login }
+}
+`
+
+const ISSUE_ACTIVITY = `
+query IssueActivity($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) { ${ACTIVITY_FIELDS} }
+  }
+}
+${ASSIGNEE_FRAGMENT}`
+
+const RECENT_ACTIVITY = `
+query RecentActivity($owner: String!, $name: String!, $since: DateTime!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issues(first: 25, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }, filterBy: { since: $since }) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ${ACTIVITY_FIELDS} }
+    }
+  }
+}
+${ASSIGNEE_FRAGMENT}`
+
+interface RecentActivityData {
+  repository: {
+    issues: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: GqlIssueActivity[] }
+  } | null
 }

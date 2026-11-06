@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks'
 import { APP_TITLE, KEY_PREFIX } from '../config.ts'
 import { formatDateTime } from '../domain/format.ts'
 import { route } from '../router.ts'
-import { booting, dismissToast, issueMap, refresh, session, signOut, sync, toasts } from '../store.ts'
+import { booting, dismissToast, issueMap, refresh, session, signOut, sync, toasts, unreadCount } from '../store.ts'
 import { Board } from './Board.tsx'
 import { Avatar, EmptyState, Menu, MenuItem, Spinner } from './common.tsx'
 import { CreateIssue } from './CreateIssue.tsx'
@@ -12,6 +12,7 @@ import { IssueList } from './IssueList.tsx'
 import { IssuePage } from './IssuePage.tsx'
 import { Login } from './Login.tsx'
 import { Lightbox } from './markdown.tsx'
+import { Notifications } from './Notifications.tsx'
 
 export function App() {
   if (booting.value) {
@@ -47,11 +48,19 @@ export function App() {
 function Page() {
   const current = route.value
   const issue = current.name === 'issue' ? issueMap.value.get(current.number) : undefined
+  const unread = unreadCount.value
   useEffect(() => {
-    const titles: Record<string, string> = { board: 'Доска', list: 'Задачи', new: 'Новая задача', notFound: 'Не найдено' }
+    const titles: Record<string, string> = {
+      board: 'Доска',
+      list: 'Задачи',
+      notifications: 'Уведомления',
+      new: 'Новая задача',
+      notFound: 'Не найдено',
+    }
     const title = current.name === 'issue' ? (issue ? `${issue.key}: ${issue.title}` : `${KEY_PREFIX}-${current.number}`) : titles[current.name]
-    document.title = `${title} — ${APP_TITLE}`
-  }, [current, issue?.title])
+    // счётчик во вкладке браузера: новое видно, даже когда трекер в фоне
+    document.title = `${unread ? `(${unread}) ` : ''}${title} — ${APP_TITLE}`
+  }, [current, issue?.title, unread])
 
   switch (current.name) {
     case 'board':
@@ -59,7 +68,9 @@ function Page() {
     case 'list':
       return <IssueList query={current.query} />
     case 'issue':
-      return <IssuePage number={current.number} />
+      return <IssuePage number={current.number} tab={current.query.get('tab')} />
+    case 'notifications':
+      return <Notifications query={current.query} />
     case 'new':
       return <CreateIssue />
     case 'notFound':
@@ -77,6 +88,7 @@ function Header() {
   const current = route.value
   const me = session.value!
   const state = sync.value
+  const unread = unreadCount.value
   return (
     <header class="topbar">
       <a class="topbar__brand" href="#/board" title={APP_TITLE}>
@@ -102,6 +114,15 @@ function Header() {
       >
         <Icon name="refresh" />
       </button>
+      <a
+        class={`btn btn--icon bell${current.name === 'notifications' ? ' is-active' : ''}`}
+        href="#/notifications"
+        title={unread ? `Уведомления: новых ${unread}` : 'Уведомления'}
+        aria-label={unread ? `Уведомления, новых: ${unread}` : 'Уведомления'}
+      >
+        <Icon name="bell" />
+        {unread > 0 && <span class="bell__badge">{unread > 99 ? '99+' : unread}</span>}
+      </a>
       <a class="btn btn--action topbar__create" href="#/new" title="Создать задачу">
         <Icon name="plus" />
         <span class="hide-mobile">Создать задачу</span>

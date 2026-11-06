@@ -439,7 +439,8 @@ function AttachmentTile({ file, onRemove }: { file: Attachment; onRemove: () => 
 
 // Комментарии
 
-export function CommentsBlock({ issue }: { issue: Issue }) {
+/** Комментарии задачи — содержимое вкладки «Комментарии» (заголовок с вкладками — на странице задачи). */
+export function Comments({ issue }: { issue: Issue }) {
   const state = commentsByIssue.value.get(issue.number)
   const viewer = session.value!.viewer
   const draft = commentDrafts.value.get(issue.number) ?? ''
@@ -470,11 +471,7 @@ export function CommentsBlock({ issue }: { issue: Issue }) {
   }
 
   return (
-    <section class="block block--comments">
-      <div class="block__head">
-        <h2 class="block__title">Комментарии</h2>
-        {issue.comments > 0 && <span class="block__counter">{issue.comments}</span>}
-      </div>
+    <>
       {state?.status === 'loading' && <Spinner />}
       {state?.status === 'error' && (
         <div class="alert alert--error">
@@ -531,7 +528,7 @@ export function CommentsBlock({ issue }: { issue: Issue }) {
           )}
         </div>
       </div>
-    </section>
+    </>
   )
 }
 

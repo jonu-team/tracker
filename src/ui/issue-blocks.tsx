@@ -2,7 +2,16 @@ import { signal } from '@preact/signals'
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { checklistProgress, isImageName, newItemId, type Attachment, type ChecklistItem } from '../domain/body.ts'
-import { addAttachment, addItem, itemRef, removeAttachment, removeItem, updateItem } from '../domain/edits.ts'
+import {
+  addAttachment,
+  addItem,
+  itemRef,
+  moveItem,
+  removeAttachment,
+  removeItem,
+  updateItem,
+  type ItemRef,
+} from '../domain/edits.ts'
 import { formatDue, isOverdue } from '../domain/format.ts'
 import type { Comment, Issue } from '../domain/issue.ts'
 import { loadRepoFile, repoFileFromUrl } from '../lib/files.ts'
@@ -24,13 +33,20 @@ import { Avatar, DateText, Menu, MenuItem, Person, Spinner, StatusLabel, UserPic
 import { Icon } from './icons.tsx'
 import { commentDrafts, composerFocus, setDraft } from './drafts.ts'
 import { Markdown, MarkdownEditor, lightbox } from './markdown.tsx'
+import { useReorder } from './reorder.ts'
 
 // Чеклист
 
 export function ChecklistBlock({ issue, adding, onAdded }: { issue: Issue; adding: boolean; onAdded: () => void }) {
   const items = issue.body.checklist
   const [hideDone, setHideDone] = useState(false)
+  const reorder = useReorder<ItemRef>((ref, { index, place }) => {
+    const target = issue.body.checklist[index]
+    if (target) void changeBody(issue.number, moveItem(ref, itemRef(target, index), place))
+  })
   if (!items.length && !adding) return null
+  // Двигаем только среди видимых: при скрытых выполненных соседи — ближайшие видимые пункты.
+  const visible = items.flatMap((item, index) => (hideDone && item.checked ? [] : [{ item, ref: itemRef(item, index) }]))
   const progress = checklistProgress(items)
   const percent = progress.total ? Math.round((progress.done / progress.total) * 100) : 0
   return (
@@ -54,17 +70,40 @@ export function ChecklistBlock({ issue, adding, onAdded }: { issue: Issue; addin
           <div class={`progress__bar${percent === 100 ? ' is-done' : ''}`} style={{ width: `${percent}%` }} />
         </div>
       )}
-      <ul class="checklist">
-        {items.map((item, index) =>
-          hideDone && item.checked ? null : <ChecklistRow key={item.id || `${index}:${item.text}`} issue={issue} item={item} index={index} />,
-        )}
+      <ul class="checklist" ref={reorder.listRef}>
+        {visible.map(({ item, ref }, position) => (
+          <ChecklistRow
+            key={item.id || `${ref.index}:${item.text}`}
+            issue={issue}
+            item={item}
+            index={ref.index}
+            prev={visible[position - 1]?.ref}
+            next={visible[position + 1]?.ref}
+            onGrab={reorder.start}
+          />
+        ))}
       </ul>
       <AddChecklistItem issue={issue} autoFocus={adding} onDone={onAdded} />
     </section>
   )
 }
 
-function ChecklistRow({ issue, item, index }: { issue: Issue; item: ChecklistItem; index: number }) {
+function ChecklistRow({
+  issue,
+  item,
+  index,
+  prev,
+  next,
+  onGrab,
+}: {
+  issue: Issue
+  item: ChecklistItem
+  index: number
+  /** Соседние видимые пункты: куда двигать «выше» и «ниже». */
+  prev: ItemRef | undefined
+  next: ItemRef | undefined
+  onGrab: (event: PointerEvent, ref: ItemRef) => void
+}) {
   const ref = itemRef(item, index)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(item.text)
@@ -75,7 +114,20 @@ function ChecklistRow({ issue, item, index }: { issue: Issue; item: ChecklistIte
   }
   const overdue = item.due && !item.checked && isOverdue(item.due)
   return (
-    <li class={`checklist__item${item.checked ? ' is-checked' : ''}`}>
+    <li class={`checklist__item${item.checked ? ' is-checked' : ''}`} data-index={index}>
+      {(prev || next) && (
+        // Мышью и пальцем; с клавиатуры — пункты «Переместить выше/ниже» в меню.
+        <span
+          class="checklist__grip"
+          title="Перетащите, чтобы поменять порядок"
+          aria-hidden="true"
+          onPointerDown={(event) => onGrab(event, ref)}
+          // долгое нажатие пальцем — это перетаскивание, а не меню браузера
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <Icon name="grip" />
+        </span>
+      )}
       <label class="checkbox" title={item.checked ? 'Снять отметку' : 'Отметить выполненным'}>
         <input
           type="checkbox"
@@ -125,6 +177,18 @@ function ChecklistRow({ issue, item, index }: { issue: Issue; item: ChecklistIte
                 <Icon name="edit" />
                 Изменить текст
               </MenuItem>
+              {prev && (
+                <MenuItem onSelect={() => (close(), void changeBody(issue.number, moveItem(ref, prev, 'before')))}>
+                  <Icon name="arrowUp" />
+                  Переместить выше
+                </MenuItem>
+              )}
+              {next && (
+                <MenuItem onSelect={() => (close(), void changeBody(issue.number, moveItem(ref, next, 'after')))}>
+                  <Icon name="arrowDown" />
+                  Переместить ниже
+                </MenuItem>
+              )}
               <MenuItem danger onSelect={() => (close(), void changeBody(issue.number, removeItem(ref)))}>
                 <Icon name="trash" />
                 Удалить пункт

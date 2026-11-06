@@ -50,6 +50,23 @@ export function removeItem(ref: ItemRef) {
   }
 }
 
+/**
+ * Переставить пункт перед соседом `target` или после него. Опора — сам сосед,
+ * а не номер позиции: правка верно ложится и на свежее тело, где кто-то успел
+ * добавить или переставить пункты, а при скрытых выполненных пункт
+ * перескакивает через невидимые, а не меняется с ними местами.
+ */
+export function moveItem(ref: ItemRef, target: ItemRef, place: 'before' | 'after') {
+  return (body: IssueBody): IssueBody => {
+    const from = findItem(body.checklist, ref)
+    const to = findItem(body.checklist, target)
+    if (from < 0 || to < 0 || from === to) return body
+    const at = (from < to ? to - 1 : to) + (place === 'after' ? 1 : 0)
+    if (at === from) return body
+    return { ...body, checklist: body.checklist.toSpliced(from, 1).toSpliced(at, 0, body.checklist[from]!) }
+  }
+}
+
 export function addLink(number: number) {
   return (body: IssueBody): IssueBody =>
     body.links.includes(number) ? body : { ...body, links: [...body.links, number].sort((a, b) => a - b) }

@@ -1168,12 +1168,14 @@ body.is-dragging * {
 }
 
 .checklist {
+  position: relative; /* offsetTop пунктов — от списка: по нему считается перетаскивание */
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .checklist__item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -1183,6 +1185,49 @@ body.is-dragging * {
 
 .checklist__item:hover {
   background: rgba(0, 0, 0, 0.025);
+}
+
+/* Ручка перетаскивания — в поле слева от пункта, видна при наведении */
+.checklist__grip {
+  position: absolute;
+  top: 5px;
+  left: -22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-s);
+  color: var(--text-3);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.checklist__item:hover .checklist__grip,
+.checklist__item.is-dragged .checklist__grip {
+  opacity: 1;
+}
+
+.checklist__grip:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+/* Перетаскиваемый пункт едет поверх остальных, соседи расступаются */
+.checklist__item.is-dragged {
+  z-index: 2;
+  background: var(--bg);
+  box-shadow: var(--shadow-popup);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .checklist.is-reordering > .checklist__item:not(.is-dragged) {
+    transition: transform 0.15s ease;
+  }
 }
 
 .checklist__text {
@@ -2471,6 +2516,17 @@ body.is-dragging * {
     padding: 6px 0;
   }
 
+  /* поля слева нет — ручка встаёт в строку перед галочкой */
+  .checklist__grip {
+    position: relative;
+    top: auto;
+    left: auto;
+    flex: none;
+    width: 16px;
+    margin-right: -6px;
+    opacity: 1;
+  }
+
   .tile__remove {
     opacity: 1;
   }
@@ -2565,8 +2621,18 @@ body.is-dragging * {
 /* Сенсорные экраны: кнопки на карточках и пунктах видны всегда */
 @media (hover: none) {
   .card__menu,
+  .checklist__grip,
   .checklist__meta .btn--icon,
   .tile__remove {
     opacity: 1 !important;
+  }
+}
+
+/* Палец крупнее ручки: касание ловим и рядом с ней */
+@media (pointer: coarse) {
+  .checklist__grip::after {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
   }
 }
